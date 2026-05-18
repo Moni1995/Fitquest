@@ -1,0 +1,1700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#3a5d2a">
+<title>Tiny Valley 🌱</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#fff;touch-action:none;overscroll-behavior:none}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0a14}
+canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;background:#3a5d2a;max-width:100%;max-height:100%;touch-action:none}
+
+/* HUD */
+#hud{position:fixed;top:0;left:0;right:0;padding:max(env(safe-area-inset-top,0),10px) 12px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;z-index:10}
+.hud-col{display:flex;flex-direction:column;gap:5px}
+.hud-r{align-items:flex-end}
+.stat{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:10px;padding:5px 11px;font-size:12px;font-weight:600;pointer-events:auto;display:flex;align-items:center;gap:6px;line-height:1.2}
+.stat .lbl{opacity:.7;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+.bar{width:80px;height:6px;background:rgba(255,255,255,.18);border-radius:3px;overflow:hidden}
+.bar>div{height:100%;background:#4ade80;transition:width .3s;border-radius:3px}
+.bar.energy>div{background:linear-gradient(90deg,#facc15,#4ade80)}
+.bar.energy.low>div{background:linear-gradient(90deg,#ef4444,#f97316)}
+
+/* Joystick */
+#joy{position:fixed;bottom:max(env(safe-area-inset-bottom,0),22px);left:22px;width:130px;height:130px;pointer-events:auto;z-index:20;touch-action:none}
+#joyBase{position:absolute;inset:0;background:rgba(0,0,0,.3);border:2px solid rgba(255,255,255,.25);border-radius:50%;box-shadow:0 0 0 4px rgba(255,255,255,.04)}
+#joyStick{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;background:rgba(255,255,255,.55);border:2px solid #fff;border-radius:50%}
+
+/* Action zone */
+#actions{position:fixed;bottom:max(env(safe-area-inset-bottom,0),22px);right:18px;display:flex;align-items:flex-end;gap:10px;z-index:20}
+.col{display:flex;flex-direction:column;gap:10px;align-items:center}
+.act{border-radius:50%;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:2px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;cursor:pointer;font-weight:bold}
+.act:active{transform:scale(.92);background:rgba(255,255,255,.15)}
+.act.small{width:50px;height:50px;font-size:18px}
+.act.big{width:78px;height:78px;font-size:30px;background:linear-gradient(160deg,rgba(250,204,21,.6),rgba(245,158,11,.5));border-color:rgba(255,255,255,.6);box-shadow:0 4px 12px rgba(0,0,0,.4)}
+
+/* Tool chip */
+#toolChip{position:fixed;right:18px;bottom:calc(max(env(safe-area-inset-bottom,0),22px) + 100px);background:rgba(0,0,0,.65);padding:6px 12px;border-radius:99px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;pointer-events:none;z-index:19;border:1px solid rgba(255,255,255,.2)}
+#toolChip .ico{font-size:18px}
+
+/* Modals */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:none;align-items:flex-end;justify-content:center;z-index:100;padding:0}
+.modal.show{display:flex;animation:fadein .2s}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes slideup{from{transform:translateY(40px)}to{transform:translateY(0)}}
+.panel{background:linear-gradient(180deg,#2d2540,#1f1930);border-radius:20px 20px 0 0;padding:18px 16px max(env(safe-area-inset-bottom,16px),16px);width:100%;max-width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,.5);animation:slideup .25s}
+.panel h2{font-size:18px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;font-weight:700}
+.panel h2 span{display:flex;align-items:center;gap:8px}
+.close{background:rgba(255,255,255,.08);border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.close:active{background:rgba(255,255,255,.18)}
+.empty{padding:24px;text-align:center;opacity:.55;font-size:13px}
+
+.tabs{display:flex;gap:5px;margin-bottom:12px;background:rgba(0,0,0,.25);padding:4px;border-radius:12px}
+.tab{flex:1;padding:8px;background:transparent;border:none;color:#fff;border-radius:9px;font-weight:600;font-size:12px;cursor:pointer;opacity:.6}
+.tab.active{background:rgba(255,255,255,.12);opacity:1}
+
+.row{display:flex;align-items:center;gap:11px;padding:10px;background:rgba(255,255,255,.05);border-radius:12px;margin-bottom:6px;border:1px solid rgba(255,255,255,.04)}
+.row .icon{font-size:26px;width:36px;text-align:center;flex-shrink:0}
+.row .info{flex:1;min-width:0}
+.row .name{font-weight:700;font-size:13px;line-height:1.3}
+.row .desc{font-size:11px;opacity:.65;margin-top:2px;line-height:1.3}
+.row .qty{font-size:11px;opacity:.7;margin-top:2px}
+.row button{background:#4ade80;color:#0a2515;border:none;padding:7px 14px;border-radius:9px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap}
+.row button.sell{background:#fbbf24;color:#3a2c00}
+.row button:active{transform:scale(.95)}
+.row button:disabled{background:#3a3548;color:#666;cursor:not-allowed}
+
+/* Tool grid */
+.tool-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px}
+.tool-btn{aspect-ratio:1;background:rgba(255,255,255,.06);border:2px solid transparent;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:24px;cursor:pointer;gap:2px;padding:4px;color:#fff}
+.tool-btn.active{border-color:#4ade80;background:rgba(74,222,128,.18);box-shadow:0 0 12px rgba(74,222,128,.3)}
+.tool-btn .lbl{font-size:9px;opacity:.7;font-weight:600;text-transform:uppercase}
+.tool-btn:disabled{opacity:.3}
+
+/* Toast */
+#toast{position:fixed;top:80px;left:50%;transform:translateX(-50%) translateY(-10px);background:rgba(0,0,0,.85);padding:10px 18px;border-radius:99px;font-size:13px;font-weight:600;pointer-events:none;z-index:200;opacity:0;transition:opacity .25s,transform .25s;white-space:nowrap;border:1px solid rgba(255,255,255,.15);box-shadow:0 4px 20px rgba(0,0,0,.4)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Title */
+#title{position:fixed;inset:0;background:linear-gradient(180deg,#7ec8e3 0%,#a8d878 45%,#5d8a3a 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;padding:20px;text-align:center}
+#title.hide{display:none}
+#title .logo{font-size:14vw;max-font-size:80px;line-height:1;margin-bottom:8px;text-shadow:3px 3px 0 rgba(0,0,0,.18)}
+#title h1{font-size:36px;font-weight:900;color:#fff;text-shadow:3px 3px 0 #2a4218,5px 5px 0 rgba(0,0,0,.2);letter-spacing:1px;margin-bottom:6px}
+#title .sub{font-size:14px;color:#fff;opacity:.92;text-shadow:1px 1px 0 rgba(0,0,0,.2);margin-bottom:32px;font-weight:500}
+#title .btns{display:flex;flex-direction:column;gap:10px;width:min(280px,80vw)}
+.bigBtn{padding:14px 28px;font-size:17px;font-weight:800;background:#fbbf24;color:#3a2c00;border:none;border-radius:99px;cursor:pointer;box-shadow:0 4px 0 #b88a00,0 6px 12px rgba(0,0,0,.2);letter-spacing:.5px}
+.bigBtn:active{transform:translateY(2px);box-shadow:0 2px 0 #b88a00}
+.bigBtn.alt{background:rgba(255,255,255,.85);color:#2a4218}
+.bigBtn.alt:active{box-shadow:0 2px 0 #5a7a3a}
+.bigBtn.alt{box-shadow:0 4px 0 #5a7a3a,0 6px 12px rgba(0,0,0,.2)}
+
+#hint{margin-top:16px;font-size:11px;color:rgba(255,255,255,.85);text-shadow:1px 1px 0 rgba(0,0,0,.2);line-height:1.6;max-width:280px}
+
+/* Dialog */
+.dialog .panel{max-width:340px}
+.dialog .actions{display:flex;gap:8px;margin-top:14px}
+.dialog .actions button{flex:1;padding:10px;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer}
+.dialog .yes{background:#4ade80;color:#0a2515}
+.dialog .no{background:rgba(255,255,255,.1);color:#fff}
+
+/* Day overlay */
+#dayOver{position:fixed;inset:0;background:rgba(0,0,0,0);pointer-events:none;z-index:50;transition:background .8s}
+#dayOver.show{background:rgba(0,0,0,.9)}
+#dayOver .inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:800;opacity:0;transition:opacity .5s;text-align:center;padding:20px;line-height:1.5}
+#dayOver.show .inner{opacity:1}
+
+.row.menu-row{cursor:pointer}
+.row.menu-row:active{background:rgba(255,255,255,.1)}
+</style>
+</head>
+<body>
+
+<div id="wrap"><canvas id="cv"></canvas></div>
+
+<div id="hud">
+  <div class="hud-col">
+    <div class="stat" id="dayStat">📅 Day 1 · <span id="timeT">6:00am</span></div>
+    <div class="stat"><span class="lbl">Energy</span><div class="bar energy" id="enBar"><div style="width:100%"></div></div></div>
+  </div>
+  <div class="hud-col hud-r">
+    <div class="stat" id="goldStat">💰 <span id="goldN">50</span>g</div>
+    <div class="stat act" id="menuBtn" style="cursor:pointer">☰ Menu</div>
+  </div>
+</div>
+
+<div id="toolChip"><span class="ico" id="toolIco">⛏️</span><span id="toolName">Hoe</span></div>
+
+<div id="joy">
+  <div id="joyBase"></div>
+  <div id="joyStick"></div>
+</div>
+
+<div id="actions">
+  <div class="col">
+    <div class="act small" id="toolBtn">🎒</div>
+  </div>
+  <div class="col">
+    <div class="act big" id="useBtn">✦</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="dayOver"><div class="inner" id="dayMsg"></div></div>
+
+<!-- Tool/Inventory modal -->
+<div class="modal" id="invModal">
+  <div class="panel">
+    <h2><span>🎒 Tools & Inventory</span><button class="close" data-close>×</button></h2>
+    <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Tool</div>
+    <div class="tool-grid" id="toolGrid"></div>
+    <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px">Seeds</div>
+    <div id="seedList"></div>
+    <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px">Harvest</div>
+    <div id="harvestList"></div>
+    <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px">Materials</div>
+    <div id="matList"></div>
+  </div>
+</div>
+
+<!-- Shop modal -->
+<div class="modal" id="shopModal">
+  <div class="panel">
+    <h2><span>🛒 General Store</span><button class="close" data-close>×</button></h2>
+    <div class="tabs">
+      <button class="tab active" data-shop-tab="buy">Buy</button>
+      <button class="tab" data-shop-tab="sell">Sell</button>
+    </div>
+    <div id="shopBuy"></div>
+    <div id="shopSell" style="display:none"></div>
+  </div>
+</div>
+
+<!-- Menu modal -->
+<div class="modal" id="menuModal">
+  <div class="panel">
+    <h2><span>☰ Menu</span><button class="close" data-close>×</button></h2>
+    <div class="row menu-row" id="howToBtn"><span class="icon">❓</span><div class="info"><div class="name">How to Play</div><div class="desc">Controls & basics</div></div></div>
+    <div class="row menu-row" id="resetBtn"><span class="icon">🔄</span><div class="info"><div class="name">Reset Save</div><div class="desc">Start over from scratch</div></div></div>
+    <div class="row menu-row" id="endDayBtn"><span class="icon">😴</span><div class="info"><div class="name">Pass Time</div><div class="desc">Skip to evening (or sleep at home)</div></div></div>
+  </div>
+</div>
+
+<!-- Sleep dialog -->
+<div class="modal dialog" id="sleepModal">
+  <div class="panel">
+    <h2><span>🛏️ Go to sleep?</span></h2>
+    <div style="font-size:13px;opacity:.85;line-height:1.55">Resting will restore your energy and advance to the next day. Crops will continue to grow overnight.</div>
+    <div class="actions">
+      <button class="no" data-close>Not yet</button>
+      <button class="yes" id="confirmSleep">Sleep 💤</button>
+    </div>
+  </div>
+</div>
+
+<!-- How to play -->
+<div class="modal" id="howModal">
+  <div class="panel">
+    <h2><span>❓ How to Play</span><button class="close" data-close>×</button></h2>
+    <div style="font-size:13px;line-height:1.6;opacity:.92">
+      <p style="margin-bottom:10px">🕹️ <b>Joystick (left)</b> moves your character.</p>
+      <p style="margin-bottom:10px">✦ <b>Action button (right)</b> uses your current tool on the tile in front of you.</p>
+      <p style="margin-bottom:10px">🎒 <b>Bag button</b> opens tools & inventory. Tap a tool to equip it. Tap a seed to plant (you must hold the seed and stand on tilled, watered or dry soil).</p>
+      <p style="margin-bottom:10px"><b>Tools:</b><br>⛏️ Hoe – tills grass into soil<br>💧 Watering Can – waters soil (refill at the lake)<br>🌾 Sickle – harvests ripe crops & cuts grass<br>🪓 Axe – chops trees (gets wood)<br>⛏ Pickaxe – breaks rocks (gets stone)</p>
+      <p style="margin-bottom:10px"><b>Loop:</b> Till → Plant a seed → Water daily → Wait days → Harvest → Sell at shop → Buy better seeds!</p>
+      <p style="margin-bottom:10px">🏪 Walk up to the <b>shop</b> (bottom right of the map) to buy seeds and sell crops.</p>
+      <p style="margin-bottom:10px">🛏️ Walk up to your <b>bed</b> in the house to sleep & advance the day. Energy fully refills.</p>
+      <p>🎯 <b>Goal:</b> Build the biggest farm and reach <b>5,000g</b>!</p>
+    </div>
+  </div>
+</div>
+
+<!-- Title screen -->
+<div id="title">
+  <div class="logo">🌱</div>
+  <h1>Tiny Valley</h1>
+  <div class="sub">A pocket farming adventure</div>
+  <div class="btns">
+    <button class="bigBtn" id="newGameBtn">🚜 New Farm</button>
+    <button class="bigBtn alt" id="continueBtn" style="display:none">🌾 Continue</button>
+  </div>
+  <div id="hint">Move with the left joystick · Tap ✦ to use your tool<br>Best in portrait mode on phone 📱</div>
+</div>
+
+<script>
+'use strict';
+(function(){
+
+/* ============================================================
+   CONSTANTS
+============================================================ */
+const TS = 32;            // tile size in source pixels
+const MAP_W = 22, MAP_H = 18;
+const PLAYER_SPEED = 2.4; // pixels per frame at 60fps target
+
+// Tile codes
+const T = {
+  GRASS:0, PATH:1, WATER:2, TILLED:3, WATERED:4,
+  TREE:5, ROCK:6, SHOP_FLOOR:7, SHOP_WALL:8, HOUSE_FLOOR:9,
+  HOUSE_WALL:10, BED:11, COUNTER:12, FENCE:13, FLOWER:14, BUSH:15,
+  SHOP_DOOR:16, HOUSE_DOOR:17, SAND:18, BRIDGE:19
+};
+// Solid (cannot walk through)
+const SOLID = new Set([T.WATER,T.TREE,T.ROCK,T.SHOP_WALL,T.HOUSE_WALL,T.BED,T.COUNTER,T.FENCE,T.BUSH]);
+
+// Crops
+const CROPS = {
+  parsnip:    {name:'Parsnip',    emoji:'🥕', sprite:'parsnip',    seedPrice:20,  sellPrice:35,  stages:4, daysPerStage:1},
+  potato:     {name:'Potato',     emoji:'🥔', sprite:'potato',     seedPrice:50,  sellPrice:80,  stages:4, daysPerStage:2},
+  tomato:     {name:'Tomato',     emoji:'🍅', sprite:'tomato',     seedPrice:50,  sellPrice:60,  stages:4, daysPerStage:2, regrow:3},
+  strawberry: {name:'Strawberry', emoji:'🍓', sprite:'strawberry', seedPrice:100, sellPrice:120, stages:4, daysPerStage:2},
+  pumpkin:    {name:'Pumpkin',    emoji:'🎃', sprite:'pumpkin',    seedPrice:100, sellPrice:320, stages:4, daysPerStage:3},
+  blueberry:  {name:'Blueberry',  emoji:'🫐', sprite:'blueberry',  seedPrice:80,  sellPrice:50,  stages:4, daysPerStage:3, regrow:4, yields:3},
+  melon:      {name:'Melon',      emoji:'🍈', sprite:'melon',      seedPrice:80,  sellPrice:250, stages:4, daysPerStage:3},
+};
+
+const TOOLS = [
+  {id:'hoe',    name:'Hoe',         emoji:'⛏️', energy:5},
+  {id:'water',  name:'Watering Can',emoji:'💧', energy:2},
+  {id:'sickle', name:'Sickle',      emoji:'🌾', energy:1},
+  {id:'axe',    name:'Axe',         emoji:'🪓', energy:5},
+  {id:'pick',   name:'Pickaxe',     emoji:'⛏', energy:5},
+];
+
+const MATS = {
+  wood:  {name:'Wood',  emoji:'🪵', sellPrice:5},
+  stone: {name:'Stone', emoji:'🪨', sellPrice:8},
+  fiber: {name:'Fiber', emoji:'🌿', sellPrice:2},
+};
+
+/* ============================================================
+   STATE
+============================================================ */
+let state = null;
+function defaultState(){
+  return {
+    day: 1, time: 6*60, // minutes since midnight
+    gold: 50, energy: 100, maxEnergy: 100,
+    tool: 'hoe',
+    selectedSeed: null,
+    canWater: 20, maxWater: 20,
+    inv: {
+      seeds: { parsnip: 5 },
+      crops: {},
+      mats: {},
+    },
+    map: null,
+    crops: {}, // key 'x,y' -> {kind, stage, watered, daysSinceWater, harvested}
+    player: { x: 11*TS, y: 12*TS, dir: 1 /*up, toward farm*/, anim:0, moving:false, vx:0, vy:0 },
+    flags: { tutorialShown:false }
+  };
+}
+
+function makeMap(){
+  // 0=grass everywhere
+  const m = new Array(MAP_H);
+  for (let y=0;y<MAP_H;y++){
+    m[y] = new Array(MAP_W).fill(T.GRASS);
+  }
+  // Lake in top-left area
+  const lake = [
+    [2,1],[3,1],[4,1],[5,1],[6,1],
+    [1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],
+    [1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],
+    [2,4],[3,4],[4,4],[5,4],[6,4],
+    [3,5],[4,5],[5,5]
+  ];
+  lake.forEach(([x,y])=> m[y][x]=T.WATER);
+  // Sand around lake
+  for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+    if (m[y][x]===T.GRASS){
+      const near = (dx,dy)=> m[y+dy] && m[y+dy][x+dx]===T.WATER;
+      if (near(-1,0)||near(1,0)||near(0,-1)||near(0,1)||near(-1,-1)||near(1,-1)||near(-1,1)||near(1,1)){
+        m[y][x] = T.SAND;
+      }
+    }
+  }
+  // Scattered trees on top edge & sides
+  const trees = [
+    [10,0],[12,0],[15,0],[17,0],[19,0],[20,0],[21,0],
+    [0,0],[0,5],[0,7],[0,9],[0,11],[0,14],[0,16],
+    [21,3],[21,5],[21,8],[21,11],[21,14],[21,16],
+    [13,1],[16,1],[18,1],[11,2],[14,2],[19,2],
+    [9,1],[10,3],[15,3],[18,4]
+  ];
+  trees.forEach(([x,y])=>{ if(m[y]&&m[y][x]!==T.WATER&&m[y][x]!==T.SAND) m[y][x]=T.TREE; });
+  // Rocks scattered
+  const rocks = [[8,5],[17,5],[6,15],[3,16],[19,14],[20,9],[2,11]];
+  rocks.forEach(([x,y])=>{ if(m[y]&&m[y][x]===T.GRASS) m[y][x]=T.ROCK; });
+  // Flowers
+  const flowers = [[5,8],[7,9],[14,7],[16,9],[3,12],[18,12],[10,11]];
+  flowers.forEach(([x,y])=>{ if(m[y]&&m[y][x]===T.GRASS) m[y][x]=T.FLOWER; });
+
+  // Farm area fenced (8,7) to (15,11) with pre-tilled inside (9,8)-(14,10)
+  for (let x=8;x<=15;x++){ m[7][x]=T.FENCE; m[11][x]=T.FENCE; }
+  for (let y=8;y<=10;y++){ m[y][8]=T.FENCE; m[y][15]=T.FENCE; }
+  // open the fence gap on the bottom
+  m[11][11]=T.PATH; m[11][12]=T.PATH;
+  // Pre-tilled
+  for (let y=8;y<=10;y++) for (let x=9;x<=14;x++) m[y][x]=T.TILLED;
+
+  // Path from farm gate down toward house/shop
+  m[12][11]=T.PATH; m[12][12]=T.PATH;
+
+  // House (10,13) to (13,15) - bottom-left of player house
+  for (let y=13;y<=15;y++) for (let x=10;x<=13;x++){
+    if (y===13||y===15||x===10||x===13) m[y][x]=T.HOUSE_WALL;
+    else m[y][x]=T.HOUSE_FLOOR;
+  }
+  m[15][11]=T.HOUSE_DOOR; m[15][12]=T.HOUSE_DOOR;
+  m[14][12]=T.BED; m[14][11]=T.BED;
+
+  // Shop (17,12) to (20,15)
+  for (let y=12;y<=15;y++) for (let x=17;x<=20;x++){
+    if (y===12||y===15||x===17||x===20) m[y][x]=T.SHOP_WALL;
+    else m[y][x]=T.SHOP_FLOOR;
+  }
+  m[15][18]=T.SHOP_DOOR; m[15][19]=T.SHOP_DOOR;
+  m[13][18]=T.COUNTER; m[13][19]=T.COUNTER;
+
+  // Long path connecting house door area to shop door
+  for (let x=11;x<=19;x++) m[16][x]=T.PATH;
+  // Side path connecting north path (row 12) to south path (row 16)
+  for (let y=12;y<=16;y++) if (m[y][14]===T.GRASS||m[y][14]===T.FLOWER) m[y][14]=T.PATH;
+
+  // Bushes near edges
+  const bushes = [[2,7],[19,7],[5,14],[15,16]];
+  bushes.forEach(([x,y])=>{ if(m[y]&&m[y][x]===T.GRASS) m[y][x]=T.BUSH; });
+
+  return m;
+}
+
+/* ============================================================
+   SAVE / LOAD
+============================================================ */
+const SAVE_KEY = 'tinyvalley.save.v1';
+function save(){
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch(e){}
+}
+function load(){
+  try {
+    const s = localStorage.getItem(SAVE_KEY);
+    if (!s) return null;
+    return JSON.parse(s);
+  } catch(e){ return null; }
+}
+function hasSave(){ return !!load(); }
+
+/* ============================================================
+   CANVAS / DRAWING
+============================================================ */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+let viewW, viewH, scale;
+function resize(){
+  const w = window.innerWidth, h = window.innerHeight;
+  // Aim for ~11 tiles wide on phone
+  const desiredTilesW = w < 500 ? 11 : 14;
+  scale = Math.max(1, Math.floor(w / (desiredTilesW * TS)));
+  viewW = Math.floor(w / scale);
+  viewH = Math.floor(h / scale);
+  cv.width = viewW; cv.height = viewH;
+  cv.style.width = (viewW*scale)+'px';
+  cv.style.height = (viewH*scale)+'px';
+  ctx.imageSmoothingEnabled = false;
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', ()=> setTimeout(resize, 100));
+
+// Camera
+const cam = { x:0, y:0 };
+function updateCamera(){
+  cam.x = state.player.x + 16 - viewW/2;
+  cam.y = state.player.y + 16 - viewH/2;
+  const maxX = MAP_W*TS - viewW;
+  const maxY = MAP_H*TS - viewH;
+  cam.x = Math.max(0, Math.min(maxX, cam.x));
+  cam.y = Math.max(0, Math.min(maxY, cam.y));
+}
+
+/* ---------------- Tile renderers ---------------- */
+function drawGrass(x,y,t){
+  ctx.fillStyle = '#7cb04a';
+  ctx.fillRect(x,y,TS,TS);
+  // Darker tufts deterministically
+  const seed = (x*7 + y*13) | 0;
+  ctx.fillStyle = '#5d8a3a';
+  const sx = ((seed*17)%(TS-8))|0;
+  const sy = ((seed*23)%(TS-8))|0;
+  ctx.fillRect(x+sx, y+sy, 2,2);
+  ctx.fillRect(x+sx+3, y+sy+1, 2,2);
+  ctx.fillStyle = '#94c563';
+  ctx.fillRect(x+((seed*11)%(TS-4)), y+((seed*5)%(TS-4)), 1,1);
+}
+function drawSand(x,y){
+  ctx.fillStyle = '#e6cf91';
+  ctx.fillRect(x,y,TS,TS);
+  ctx.fillStyle = '#d4b876';
+  const seed = (x*7+y*13)|0;
+  ctx.fillRect(x+(seed%TS), y+((seed*3)%TS), 1,1);
+  ctx.fillRect(x+((seed*5)%TS), y+((seed*7)%TS), 1,1);
+}
+function drawWater(x,y){
+  const t = performance.now()/700;
+  ctx.fillStyle = '#3c84c2';
+  ctx.fillRect(x,y,TS,TS);
+  ctx.fillStyle = '#5fa7e0';
+  for(let i=0;i<3;i++){
+    const ox = ((Math.sin(t+i+x*0.1+y*0.1)*0.5+0.5)*(TS-8))|0;
+    const oy = ((Math.cos(t+i*1.3+x*0.07)*0.5+0.5)*(TS-4))|0;
+    ctx.fillRect(x+ox, y+oy, 4, 1);
+  }
+  ctx.fillStyle = '#aedcff';
+  const seed=(x*3+y*5)|0;
+  ctx.fillRect(x+((seed*7+Math.floor(t*4))%TS), y+((seed*11)%TS), 2,1);
+}
+function drawPath(x,y){
+  ctx.fillStyle = '#b08a5f';
+  ctx.fillRect(x,y,TS,TS);
+  ctx.fillStyle = '#94734a';
+  const seed=(x*7+y*13)|0;
+  ctx.fillRect(x+((seed*3)%TS), y+((seed*5)%TS), 2,2);
+  ctx.fillRect(x+((seed*11)%TS), y+((seed*17)%TS), 1,1);
+  ctx.fillStyle = '#c9a577';
+  ctx.fillRect(x+((seed*19)%TS), y+((seed*23)%TS), 1,1);
+}
+function drawTilled(x,y){
+  ctx.fillStyle = '#73502e';
+  ctx.fillRect(x,y,TS,TS);
+  ctx.fillStyle = '#5a3d22';
+  // rows
+  for (let i=4;i<TS;i+=8){ ctx.fillRect(x+1, y+i, TS-2, 1); }
+  ctx.fillStyle = '#8a6440';
+  for (let i=2;i<TS;i+=8){ ctx.fillRect(x+1, y+i, TS-2, 1); }
+}
+function drawWatered(x,y){
+  ctx.fillStyle = '#4a3320';
+  ctx.fillRect(x,y,TS,TS);
+  ctx.fillStyle = '#3a2616';
+  for (let i=4;i<TS;i+=8){ ctx.fillRect(x+1, y+i, TS-2, 1); }
+  ctx.fillStyle = '#5a4030';
+  for (let i=2;i<TS;i+=8){ ctx.fillRect(x+1, y+i, TS-2, 1); }
+  // shiny water dots
+  ctx.fillStyle = '#6ea5d8';
+  ctx.fillRect(x+6, y+8, 2,1);
+  ctx.fillRect(x+18, y+18, 2,1);
+}
+function drawTree(x,y){
+  // grass underneath
+  drawGrass(x,y);
+  // trunk
+  ctx.fillStyle = '#5d3a1a';
+  ctx.fillRect(x+13, y+18, 6, 12);
+  ctx.fillStyle = '#3d2510';
+  ctx.fillRect(x+13, y+24, 6, 1);
+  // leaves
+  ctx.fillStyle = '#2d5d1c';
+  ctx.beginPath();
+  ctx.arc(x+16, y+12, 11, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#3a7d28';
+  ctx.beginPath();
+  ctx.arc(x+13, y+10, 7, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#4a9a30';
+  ctx.beginPath();
+  ctx.arc(x+19, y+9, 5, 0, Math.PI*2);
+  ctx.fill();
+  // highlight
+  ctx.fillStyle = '#5cb83a';
+  ctx.fillRect(x+18, y+6, 2,2);
+}
+function drawRock(x,y){
+  drawGrass(x,y);
+  ctx.fillStyle = '#7a7a85';
+  ctx.beginPath();
+  ctx.ellipse(x+16, y+22, 11, 8, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#5a5a65';
+  ctx.beginPath();
+  ctx.ellipse(x+16, y+24, 11, 5, 0, 0, Math.PI);
+  ctx.fill();
+  ctx.fillStyle = '#a0a0aa';
+  ctx.fillRect(x+10, y+18, 3, 2);
+  ctx.fillRect(x+19, y+19, 2, 1);
+}
+function drawFlower(x,y){
+  drawGrass(x,y);
+  ctx.fillStyle = '#3d6b1c';
+  ctx.fillRect(x+15, y+18, 2, 8);
+  // petals
+  ctx.fillStyle = '#ff8fb3';
+  ctx.fillRect(x+13, y+14, 2,2);
+  ctx.fillRect(x+17, y+14, 2,2);
+  ctx.fillRect(x+13, y+18, 2,2);
+  ctx.fillRect(x+17, y+18, 2,2);
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillRect(x+15, y+16, 2,2);
+}
+function drawBush(x,y){
+  drawGrass(x,y);
+  ctx.fillStyle = '#2d5d1c';
+  ctx.beginPath();
+  ctx.arc(x+16, y+18, 11, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#3a7d28';
+  ctx.beginPath();
+  ctx.arc(x+12, y+15, 6, 0, Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x+20, y+18, 5, 0, Math.PI*2);
+  ctx.fill();
+  // berries
+  ctx.fillStyle = '#d33';
+  ctx.fillRect(x+10, y+15, 2,2);
+  ctx.fillRect(x+20, y+12, 2,2);
+  ctx.fillRect(x+16, y+20, 2,2);
+}
+function drawFence(x,y){
+  drawGrass(x,y);
+  ctx.fillStyle = '#8a6e44';
+  // horizontal beams
+  ctx.fillRect(x, y+10, TS, 3);
+  ctx.fillRect(x, y+20, TS, 3);
+  // posts
+  ctx.fillStyle = '#5d4828';
+  ctx.fillRect(x+6, y+6, 4, TS-6);
+  ctx.fillRect(x+22, y+6, 4, TS-6);
+  ctx.fillStyle = '#a88858';
+  ctx.fillRect(x, y+10, TS, 1);
+  ctx.fillRect(x, y+20, TS, 1);
+}
+function drawShopWall(x,y){
+  ctx.fillStyle = '#a85a3a';
+  ctx.fillRect(x,y,TS,TS);
+  ctx.fillStyle = '#8a4a30';
+  for (let i=0;i<TS;i+=8){ ctx.fillRect(x, y+i, TS, 1); }
+  ctx.fillStyle = '#c97049';
+  ctx.fillRect(x, y, TS, 2);
+}
+function drawShopFloor(x,y){
+  ctx.fillStyle = '#e6cf91';
+  ctx.fillRect(x,y,TS,TS);
+  ctx.fillStyle = '#caaf6f';
+  ctx.fillRect(x, y, TS, 1);
+  ctx.fillRect(x, y+TS-1, TS, 1);
+  ctx.fillRect(x, y+TS/2-1, TS, 1);
+}
+function drawHouseWall(x,y){
+  ctx.fillStyle = '#c89a6a';
+  ctx.fillRect(x,y,TS,TS);
+  ctx.fillStyle = '#a87a4a';
+  for (let i=0;i<TS;i+=8){ ctx.fillRect(x, y+i, TS, 1); }
+  // wood texture
+  ctx.fillStyle = '#8a5a30';
+  ctx.fillRect(x+2, y+2, 2,2);
+}
+function drawHouseFloor(x,y){
+  ctx.fillStyle = '#dcb98a';
+  ctx.fillRect(x,y,TS,TS);
+  ctx.fillStyle = '#b9966a';
+  ctx.fillRect(x, y, TS, 1);
+}
+function drawBed(x,y){
+  drawHouseFloor(x,y);
+  ctx.fillStyle = '#5a8acf';
+  ctx.fillRect(x+2, y+4, TS-4, TS-8);
+  // pillow
+  ctx.fillStyle = '#fafafa';
+  ctx.fillRect(x+4, y+6, TS-8, 6);
+  // blanket fold
+  ctx.fillStyle = '#3a5a9f';
+  ctx.fillRect(x+2, y+14, TS-4, 2);
+  ctx.fillStyle = '#7aaadf';
+  ctx.fillRect(x+2, y+4, TS-4, 1);
+}
+function drawDoor(x,y, shop){
+  ctx.fillStyle = shop ? '#a85a3a' : '#c89a6a';
+  ctx.fillRect(x,y,TS,TS);
+  ctx.fillStyle = '#3a2510';
+  ctx.fillRect(x+8, y+4, TS-16, TS-4);
+  ctx.fillStyle = '#1a1008';
+  ctx.fillRect(x+8, y+4, TS-16, 2);
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillRect(x+TS-12, y+18, 2,2);
+}
+function drawCounter(x,y){
+  drawShopFloor(x,y);
+  ctx.fillStyle = '#5d3a1a';
+  ctx.fillRect(x, y+10, TS, TS-10);
+  ctx.fillStyle = '#8a6440';
+  ctx.fillRect(x, y+10, TS, 2);
+  ctx.fillStyle = '#3d2510';
+  ctx.fillRect(x, y+18, TS, 1);
+}
+
+/* ---------------- Crop ---------------- */
+function drawCrop(x,y, kind, stage){
+  const colors = {
+    parsnip:    ['#fbe399','#f5c14a','#e69820'],
+    potato:     ['#c89a5a','#a8783a','#8a5828'],
+    tomato:     ['#a8c87a','#5da55a','#d83a3a'],
+    strawberry: ['#a8c87a','#5da55a','#e63a5a'],
+    pumpkin:    ['#a8c87a','#5da55a','#e6802a'],
+    blueberry:  ['#a8c87a','#5da55a','#4a5acf'],
+    melon:      ['#a8c87a','#5da55a','#7acf3a'],
+  };
+  const c = colors[kind] || colors.parsnip;
+  if (stage===0){
+    // sprout - tiny green nub
+    ctx.fillStyle = '#5da55a';
+    ctx.fillRect(x+14, y+22, 4, 4);
+    ctx.fillStyle = '#7acf6a';
+    ctx.fillRect(x+15, y+22, 2, 1);
+  } else if (stage===1){
+    // small leafy plant
+    ctx.fillStyle = '#3d6b1c';
+    ctx.fillRect(x+15, y+18, 2, 8);
+    ctx.fillStyle = '#5da55a';
+    ctx.fillRect(x+12, y+18, 8, 4);
+    ctx.fillStyle = '#7acf6a';
+    ctx.fillRect(x+13, y+19, 2, 1);
+    ctx.fillRect(x+17, y+19, 2, 1);
+  } else if (stage===2){
+    // larger plant
+    ctx.fillStyle = '#3d6b1c';
+    ctx.fillRect(x+15, y+14, 2, 12);
+    ctx.fillStyle = '#5da55a';
+    ctx.fillRect(x+10, y+14, 12, 6);
+    ctx.fillStyle = '#7acf6a';
+    ctx.fillRect(x+12, y+15, 2, 1);
+    ctx.fillRect(x+18, y+15, 2, 1);
+    // tiny fruit
+    ctx.fillStyle = c[1];
+    ctx.fillRect(x+15, y+18, 2, 2);
+  } else {
+    // ripe
+    ctx.fillStyle = '#3d6b1c';
+    ctx.fillRect(x+15, y+22, 2, 6);
+    ctx.fillStyle = '#5da55a';
+    ctx.fillRect(x+8, y+20, 16, 4);
+    // fruit
+    ctx.fillStyle = c[2];
+    if (kind==='pumpkin'){
+      ctx.beginPath(); ctx.arc(x+16, y+18, 8, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#3d6b1c'; ctx.fillRect(x+15, y+10, 2,3);
+    } else if (kind==='melon'){
+      ctx.beginPath(); ctx.ellipse(x+16, y+18, 9, 7, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#5da55a';
+      ctx.fillRect(x+10, y+18, 12, 1);
+    } else if (kind==='tomato'||kind==='strawberry'){
+      ctx.beginPath(); ctx.arc(x+12, y+18, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x+20, y+18, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x+16, y+15, 4, 0, Math.PI*2); ctx.fill();
+      if (kind==='strawberry'){
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x+12, y+17, 1,1);
+        ctx.fillRect(x+20, y+19, 1,1);
+        ctx.fillRect(x+16, y+14, 1,1);
+      }
+    } else if (kind==='blueberry'){
+      for (let i=0;i<5;i++){
+        ctx.beginPath();
+        ctx.arc(x+10+(i*3), y+18+(i%2?2:0), 2, 0, Math.PI*2);
+        ctx.fill();
+      }
+    } else if (kind==='potato'){
+      ctx.beginPath(); ctx.ellipse(x+13, y+22, 4, 3, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x+19, y+22, 4, 3, 0, 0, Math.PI*2); ctx.fill();
+    } else {
+      // parsnip - root visible
+      ctx.beginPath(); ctx.moveTo(x+12, y+20); ctx.lineTo(x+20,y+20); ctx.lineTo(x+16,y+28); ctx.closePath(); ctx.fill();
+    }
+    // sparkle
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x+8, y+12, 1, 1);
+    ctx.fillRect(x+24, y+14, 1, 1);
+  }
+}
+
+/* ---------------- Player ---------------- */
+function drawPlayer(){
+  const p = state.player;
+  const x = Math.round(p.x - cam.x);
+  const y = Math.round(p.y - cam.y);
+  const dir = p.dir;
+  const walking = p.moving;
+  const frame = walking ? Math.floor(p.anim/8)%2 : 0;
+
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath(); ctx.ellipse(x+16, y+30, 10, 3, 0, 0, Math.PI*2); ctx.fill();
+
+  // legs
+  ctx.fillStyle = '#3a2a4a';
+  if (frame===0){
+    ctx.fillRect(x+11, y+22, 4, 8);
+    ctx.fillRect(x+17, y+22, 4, 8);
+  } else {
+    ctx.fillRect(x+10, y+22, 4, 8);
+    ctx.fillRect(x+18, y+22, 4, 8);
+  }
+  // shoes
+  ctx.fillStyle = '#1a1020';
+  if (frame===0){
+    ctx.fillRect(x+10, y+28, 5, 2);
+    ctx.fillRect(x+17, y+28, 5, 2);
+  } else {
+    ctx.fillRect(x+9, y+28, 5, 2);
+    ctx.fillRect(x+18, y+28, 5, 2);
+  }
+  // body / shirt
+  ctx.fillStyle = '#3a82c4';
+  ctx.fillRect(x+9, y+14, 14, 10);
+  ctx.fillStyle = '#5aa8e0';
+  ctx.fillRect(x+9, y+14, 14, 2);
+  // overalls strap
+  ctx.fillStyle = '#1a4a7a';
+  ctx.fillRect(x+10, y+16, 2, 8);
+  ctx.fillRect(x+20, y+16, 2, 8);
+
+  // arms
+  ctx.fillStyle = '#f1c4a0';
+  ctx.fillRect(x+7, y+15, 3, 8);
+  ctx.fillRect(x+22, y+15, 3, 8);
+  // head
+  ctx.fillStyle = '#f1c4a0';
+  ctx.fillRect(x+10, y+5, 12, 10);
+  // hair
+  ctx.fillStyle = '#6a3a1a';
+  ctx.fillRect(x+9, y+3, 14, 5);
+  if (dir===0||dir===2||dir===3){
+    ctx.fillRect(x+9, y+5, 2, 3);
+  }
+  if (dir===0||dir===2||dir===3){
+    ctx.fillRect(x+21, y+5, 2, 3);
+  }
+  // hat - straw
+  ctx.fillStyle = '#d4a05a';
+  ctx.fillRect(x+8, y+2, 16, 3);
+  ctx.fillStyle = '#a87838';
+  ctx.fillRect(x+8, y+4, 16, 1);
+  ctx.fillStyle = '#e0b878';
+  ctx.fillRect(x+10, y+1, 12, 2);
+
+  // face based on direction
+  if (dir===0){
+    // facing down — eyes visible
+    ctx.fillStyle = '#1a1020';
+    ctx.fillRect(x+13, y+10, 2, 2);
+    ctx.fillRect(x+18, y+10, 2, 2);
+    ctx.fillStyle = '#d83a3a';
+    ctx.fillRect(x+15, y+13, 3, 1);
+  } else if (dir===1){
+    // up — back of head; no face
+    ctx.fillStyle = '#6a3a1a';
+    ctx.fillRect(x+10, y+5, 12, 6);
+  } else if (dir===2){
+    // left — one eye
+    ctx.fillStyle = '#1a1020';
+    ctx.fillRect(x+12, y+10, 2, 2);
+  } else if (dir===3){
+    ctx.fillStyle = '#1a1020';
+    ctx.fillRect(x+18, y+10, 2, 2);
+  }
+
+  // Tool indicator in hand when using
+  if (state.useAnim > 0){
+    const t = state.useAnim/10;
+    drawToolInHand(x,y,dir,t);
+  }
+}
+
+function drawToolInHand(px,py,dir,t){
+  const tool = state.tool;
+  let hx = px+8, hy = py+18;
+  if (dir===0){ hx=px+24; hy=py+16; }
+  else if (dir===1){ hx=px+8; hy=py+16; }
+  else if (dir===2){ hx=px+4; hy=py+16; }
+  else if (dir===3){ hx=px+28; hy=py+16; }
+  ctx.save();
+  ctx.translate(hx, hy);
+  const ang = (dir===2?Math.PI:0) + Math.sin(t*Math.PI)*0.6 * (dir===2?-1:1);
+  ctx.rotate(ang);
+  ctx.fillStyle = '#5d3a1a';
+  ctx.fillRect(0, -1, 10, 2);
+  ctx.fillStyle = '#a8a8b0';
+  if (tool==='hoe' || tool==='pick'){
+    ctx.fillRect(8, -3, 3, 6);
+  } else if (tool==='axe'){
+    ctx.fillRect(8, -4, 4, 4);
+    ctx.fillStyle = '#d8d8e0';
+    ctx.fillRect(11, -4, 1, 4);
+  } else if (tool==='water'){
+    ctx.fillStyle = '#5fa7e0';
+    ctx.fillRect(7, -3, 5, 6);
+    ctx.fillStyle = '#aedcff';
+    ctx.fillRect(12, -1, 2, 1);
+  } else if (tool==='sickle'){
+    ctx.fillStyle = '#d8d8e0';
+    ctx.fillRect(8, -3, 5, 1);
+    ctx.fillRect(12, -3, 1, 4);
+  }
+  ctx.restore();
+}
+
+/* ---------------- Render Loop ---------------- */
+function render(){
+  ctx.fillStyle = '#3a5d2a';
+  ctx.fillRect(0,0,viewW,viewH);
+
+  updateCamera();
+  const startX = Math.max(0, Math.floor(cam.x / TS));
+  const startY = Math.max(0, Math.floor(cam.y / TS));
+  const endX = Math.min(MAP_W, Math.ceil((cam.x+viewW)/TS));
+  const endY = Math.min(MAP_H, Math.ceil((cam.y+viewH)/TS));
+
+  // Ground tiles
+  for (let y=startY;y<endY;y++){
+    for (let x=startX;x<endX;x++){
+      const t = state.map[y][x];
+      const dx = x*TS - Math.floor(cam.x);
+      const dy = y*TS - Math.floor(cam.y);
+      switch(t){
+        case T.GRASS: drawGrass(dx,dy,t); break;
+        case T.PATH: drawPath(dx,dy); break;
+        case T.WATER: drawWater(dx,dy); break;
+        case T.SAND: drawSand(dx,dy); break;
+        case T.TILLED: drawTilled(dx,dy); break;
+        case T.WATERED: drawWatered(dx,dy); break;
+        case T.TREE: drawTree(dx,dy); break;
+        case T.ROCK: drawRock(dx,dy); break;
+        case T.FLOWER: drawFlower(dx,dy); break;
+        case T.BUSH: drawBush(dx,dy); break;
+        case T.FENCE: drawFence(dx,dy); break;
+        case T.SHOP_WALL: drawShopWall(dx,dy); break;
+        case T.SHOP_FLOOR: drawShopFloor(dx,dy); break;
+        case T.HOUSE_WALL: drawHouseWall(dx,dy); break;
+        case T.HOUSE_FLOOR: drawHouseFloor(dx,dy); break;
+        case T.BED: drawBed(dx,dy); break;
+        case T.SHOP_DOOR: drawDoor(dx,dy,true); break;
+        case T.HOUSE_DOOR: drawDoor(dx,dy,false); break;
+        case T.COUNTER: drawCounter(dx,dy); break;
+        default: drawGrass(dx,dy);
+      }
+    }
+  }
+
+  // Crops over tilled/watered
+  for (const k in state.crops){
+    const [cx,cy] = k.split(',').map(Number);
+    if (cx<startX-1||cx>endX||cy<startY-1||cy>endY) continue;
+    const c = state.crops[k];
+    const dx = cx*TS - Math.floor(cam.x);
+    const dy = cy*TS - Math.floor(cam.y);
+    drawCrop(dx,dy,c.kind,Math.min(c.stage, 3));
+  }
+
+  // Facing tile highlight
+  const ft = facingTile();
+  if (ft){
+    const dx = ft.x*TS - Math.floor(cam.x);
+    const dy = ft.y*TS - Math.floor(cam.y);
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(dx+0.5, dy+0.5, TS-1, TS-1);
+  }
+
+  // Player
+  drawPlayer();
+
+  // Day/night tint
+  applyTimeTint();
+
+  // particles
+  drawParticles();
+}
+
+function applyTimeTint(){
+  // dim at night
+  const t = state.time;
+  let a = 0;
+  if (t < 5*60) a = 0.4;
+  else if (t < 6*60) a = 0.4 * (1 - (t - 5*60)/60);
+  else if (t < 19*60) a = 0;
+  else if (t < 21*60) a = 0.35 * ((t-19*60)/(2*60));
+  else a = 0.5;
+  if (a>0){
+    ctx.fillStyle = `rgba(20,15,50,${a})`;
+    ctx.fillRect(0,0,viewW,viewH);
+  }
+}
+
+/* ============================================================
+   PARTICLES
+============================================================ */
+const parts = [];
+function spawnParts(wx,wy,opts){
+  const n = opts.n||6;
+  for (let i=0;i<n;i++){
+    parts.push({
+      x: wx + (Math.random()*16-8),
+      y: wy + (Math.random()*16-8),
+      vx: (Math.random()-0.5)*1.5,
+      vy: -Math.random()*1.6 - 0.4,
+      life: 30 + Math.random()*15,
+      max: 45,
+      color: opts.color,
+      size: opts.size||2,
+      grav: opts.grav==null?0.12:opts.grav
+    });
+  }
+}
+function drawParticles(){
+  for (let i=parts.length-1;i>=0;i--){
+    const p = parts[i];
+    p.x += p.vx; p.y += p.vy; p.vy += p.grav; p.life--;
+    if (p.life<=0){ parts.splice(i,1); continue; }
+    const dx = p.x - Math.floor(cam.x);
+    const dy = p.y - Math.floor(cam.y);
+    if (dx<-4||dy<-4||dx>viewW+4||dy>viewH+4) continue;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(dx|0, dy|0, p.size, p.size);
+  }
+}
+
+/* ============================================================
+   GAME LOGIC
+============================================================ */
+function tileAt(tx,ty){
+  if (tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) return -1;
+  return state.map[ty][tx];
+}
+function isSolid(tx,ty){
+  const t = tileAt(tx,ty);
+  return t===-1 || SOLID.has(t);
+}
+
+function facingTile(){
+  const p = state.player;
+  const cx = (p.x+16)/TS;
+  const cy = (p.y+16)/TS;
+  let tx = Math.floor(cx), ty = Math.floor(cy);
+  if (p.dir===0) ty = Math.floor(cy+1);
+  else if (p.dir===1) ty = Math.floor(cy-1);
+  else if (p.dir===2) tx = Math.floor(cx-1);
+  else if (p.dir===3) tx = Math.floor(cx+1);
+  if (tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) return null;
+  return {x:tx, y:ty};
+}
+
+function setTool(t){
+  state.tool = t;
+  state.selectedSeed = null;
+  updateToolChip();
+  renderInv();
+}
+function selectSeed(kind){
+  state.selectedSeed = kind;
+  state.tool = 'seed';
+  updateToolChip();
+  renderInv();
+}
+
+function updateToolChip(){
+  if (state.tool==='seed' && state.selectedSeed){
+    document.getElementById('toolIco').textContent = CROPS[state.selectedSeed].emoji;
+    document.getElementById('toolName').textContent = 'Plant '+CROPS[state.selectedSeed].name;
+  } else {
+    const t = TOOLS.find(x=>x.id===state.tool) || TOOLS[0];
+    document.getElementById('toolIco').textContent = t.emoji;
+    document.getElementById('toolName').textContent = t.name + (state.tool==='water'?' ('+state.canWater+'/'+state.maxWater+')':'');
+  }
+}
+
+function useTool(){
+  if (state.useAnim>0) return;
+  const ft = facingTile();
+  if (!ft) return;
+  const tx = ft.x, ty = ft.y;
+  const t = state.map[ty][tx];
+  const key = tx+','+ty;
+  const crop = state.crops[key];
+
+  // Special interactions for buildings
+  if (t===T.HOUSE_DOOR || t===T.BED){
+    openSleep(); return;
+  }
+  if (t===T.SHOP_DOOR || t===T.COUNTER){
+    openShop(); return;
+  }
+
+  const tool = state.tool;
+
+  // Harvest crop if ripe
+  if (crop && crop.stage>=3){
+    const c = CROPS[crop.kind];
+    state.inv.crops[crop.kind] = (state.inv.crops[crop.kind]||0)+1;
+    toast(`+1 ${c.emoji} ${c.name}`);
+    state.useAnim = 10;
+    spawnParts(tx*TS+16, ty*TS+16, {n:8, color:'#fbbf24', size:2});
+    if (c.regrow){
+      crop.stage = c.stages - c.regrow;
+    } else {
+      delete state.crops[key];
+      state.map[ty][tx] = T.TILLED;
+    }
+    save();
+    return;
+  }
+
+  // Plant seed
+  if (tool==='seed' && state.selectedSeed){
+    if ((t===T.TILLED||t===T.WATERED) && !crop){
+      const s = state.selectedSeed;
+      if ((state.inv.seeds[s]||0)<=0){ toast('No seeds left'); return; }
+      state.inv.seeds[s]--;
+      state.crops[key] = { kind: s, stage:0, watered:(t===T.WATERED), days:0 };
+      toast(`Planted ${CROPS[s].emoji} ${CROPS[s].name}`);
+      state.useAnim = 8;
+      spawnParts(tx*TS+16,ty*TS+22,{n:4,color:'#7acf6a',size:1});
+      if ((state.inv.seeds[s]||0)<=0){
+        state.selectedSeed = null;
+        state.tool = 'hoe';
+        updateToolChip();
+      } else {
+        updateToolChip();
+      }
+      save();
+      return;
+    } else {
+      toast('Plant on tilled soil');
+      return;
+    }
+  }
+
+  // Tools cost energy
+  const toolObj = TOOLS.find(x=>x.id===tool);
+  const cost = toolObj ? toolObj.energy : 0;
+
+  if (tool==='hoe'){
+    if (t===T.GRASS||t===T.FLOWER||t===T.PATH){
+      if (!useEnergy(cost)) return;
+      state.map[ty][tx] = T.TILLED;
+      state.useAnim = 10;
+      spawnParts(tx*TS+16, ty*TS+22, {n:6, color:'#73502e'});
+      save();
+    } else if (t===T.TILLED||t===T.WATERED){
+      if (crop){
+        if (!useEnergy(2)) return;
+        delete state.crops[key];
+        state.useAnim = 8;
+        toast('Pulled up plant');
+      } else {
+        state.map[ty][tx] = T.GRASS;
+        state.useAnim = 8;
+      }
+      save();
+    } else {
+      toast('Can\'t till that');
+    }
+    return;
+  }
+
+  if (tool==='water'){
+    if (t===T.WATER){
+      state.canWater = state.maxWater;
+      toast('Filled watering can');
+      state.useAnim = 10;
+      spawnParts(tx*TS+16,ty*TS+16,{n:8,color:'#5fa7e0'});
+      updateToolChip();
+      return;
+    }
+    if (state.canWater<=0){ toast('Refill at the lake'); return; }
+    if (t===T.TILLED){
+      if (!useEnergy(cost)) return;
+      state.map[ty][tx] = T.WATERED;
+      if (crop) crop.watered = true;
+      state.canWater--;
+      state.useAnim = 10;
+      spawnParts(tx*TS+16, ty*TS+12, {n:6, color:'#5fa7e0', size:1});
+      updateToolChip();
+      save();
+    } else if (t===T.WATERED){
+      toast('Already watered');
+    } else {
+      toast('Water tilled soil');
+    }
+    return;
+  }
+
+  if (tool==='axe'){
+    if (t===T.TREE){
+      if (!useEnergy(cost)) return;
+      state.map[ty][tx] = T.GRASS;
+      state.inv.mats.wood = (state.inv.mats.wood||0)+2;
+      toast('+2 🪵 Wood');
+      state.useAnim = 12;
+      spawnParts(tx*TS+16, ty*TS+16, {n:10, color:'#8a6440'});
+      save();
+    } else if (t===T.BUSH){
+      if (!useEnergy(2)) return;
+      state.map[ty][tx] = T.GRASS;
+      state.inv.mats.fiber = (state.inv.mats.fiber||0)+1;
+      toast('+1 🌿 Fiber');
+      state.useAnim = 8;
+      save();
+    } else {
+      toast('Chop trees with axe');
+    }
+    return;
+  }
+
+  if (tool==='pick'){
+    if (t===T.ROCK){
+      if (!useEnergy(cost)) return;
+      state.map[ty][tx] = T.GRASS;
+      state.inv.mats.stone = (state.inv.mats.stone||0)+2;
+      toast('+2 🪨 Stone');
+      state.useAnim = 12;
+      spawnParts(tx*TS+16, ty*TS+16, {n:10, color:'#7a7a85'});
+      save();
+    } else {
+      toast('Break rocks with pickaxe');
+    }
+    return;
+  }
+
+  if (tool==='sickle'){
+    if (t===T.GRASS){
+      // chance for fiber
+      if (!useEnergy(1)) return;
+      if (Math.random()<0.5){
+        state.inv.mats.fiber = (state.inv.mats.fiber||0)+1;
+        toast('+1 🌿 Fiber');
+      }
+      state.useAnim = 8;
+      save();
+    } else if (t===T.FLOWER){
+      if (!useEnergy(1)) return;
+      state.map[ty][tx] = T.GRASS;
+      state.inv.mats.fiber = (state.inv.mats.fiber||0)+1;
+      toast('+1 🌿 Fiber');
+      state.useAnim = 8;
+      save();
+    } else {
+      toast('Cut grass or flowers');
+    }
+    return;
+  }
+}
+
+function useEnergy(n){
+  if (state.energy < n){ toast('Too tired! 😴 Get rest.'); return false; }
+  state.energy -= n;
+  updateHud();
+  if (state.energy < 15){
+    if (!state._lowEnergyWarned){
+      state._lowEnergyWarned = true;
+      toast('💤 Low energy — sleep soon!');
+    }
+  }
+  return true;
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(()=> t.classList.remove('show'), 1700);
+}
+
+function updateHud(){
+  document.getElementById('goldN').textContent = state.gold;
+  const pct = Math.max(0, Math.min(100, (state.energy/state.maxEnergy)*100));
+  const enBar = document.getElementById('enBar');
+  enBar.firstElementChild.style.width = pct+'%';
+  enBar.classList.toggle('low', pct<30);
+  const h = Math.floor(state.time/60), m = state.time%60;
+  let hr = h%12; if (hr===0) hr=12;
+  const ampm = h<12?'am':'pm';
+  document.getElementById('dayStat').innerHTML = `📅 Day ${state.day} · ${hr}:${m<10?'0':''}${m}${ampm}`;
+  document.getElementById('timeT').textContent = `${hr}:${m<10?'0':''}${m}${ampm}`;
+}
+
+/* ============================================================
+   DAY ADVANCE
+============================================================ */
+function nextDay(){
+  state.day++;
+  state.time = 6*60;
+  state.energy = state.maxEnergy;
+  state._lowEnergyWarned = false;
+  state.canWater = state.maxWater;
+  // Grow crops + dry soil
+  for (const k in state.crops){
+    const [cx,cy] = k.split(',').map(Number);
+    const c = state.crops[k];
+    const def = CROPS[c.kind];
+    if (c.watered && c.stage < def.stages-1){
+      c.days = (c.days||0)+1;
+      if (c.days >= def.daysPerStage){
+        c.stage++;
+        c.days = 0;
+      }
+    }
+    c.watered = false;
+    if (state.map[cy][cx]===T.WATERED) state.map[cy][cx]=T.TILLED;
+  }
+  // Dry any remaining watered tiles
+  for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+    if (state.map[y][x]===T.WATERED) state.map[y][x]=T.TILLED;
+  }
+  // Grow back some natural things
+  if (state.day%4===0){
+    // a random grass tile becomes a flower
+    for (let i=0;i<3;i++){
+      const x = Math.floor(Math.random()*MAP_W);
+      const y = Math.floor(Math.random()*MAP_H);
+      if (state.map[y][x]===T.GRASS){
+        if (Math.random()<0.5) state.map[y][x]=T.FLOWER;
+      }
+    }
+  }
+  updateHud();
+  save();
+  flashDayOverlay(`☀️ Day ${state.day}`);
+}
+
+function flashDayOverlay(msg){
+  const o = document.getElementById('dayOver');
+  document.getElementById('dayMsg').textContent = msg;
+  o.classList.add('show');
+  setTimeout(()=> o.classList.remove('show'), 1100);
+}
+
+/* ============================================================
+   INPUT
+============================================================ */
+const joy = { active:false, dx:0, dy:0, id:null, cx:0, cy:0 };
+const joyEl = document.getElementById('joy');
+const stickEl = document.getElementById('joyStick');
+
+function setJoyPos(rx,ry){
+  const r = joyEl.getBoundingClientRect();
+  const cx = r.left + r.width/2, cy = r.top + r.height/2;
+  let dx = rx - cx, dy = ry - cy;
+  const mag = Math.hypot(dx,dy);
+  const max = r.width/2 - 8;
+  if (mag>max){ dx = dx/mag*max; dy = dy/mag*max; }
+  stickEl.style.transform = `translate(${dx}px, ${dy}px)`;
+  joy.dx = dx/max;
+  joy.dy = dy/max;
+}
+function joyEnd(){
+  joy.active=false; joy.dx=0; joy.dy=0; joy.id=null;
+  stickEl.style.transform = '';
+}
+
+joyEl.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  joy.active=true; joy.id=t.identifier;
+  setJoyPos(t.clientX, t.clientY);
+},{passive:false});
+joyEl.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  for (const t of e.changedTouches){
+    if (t.identifier===joy.id){ setJoyPos(t.clientX, t.clientY); break; }
+  }
+},{passive:false});
+joyEl.addEventListener('touchend', e=>{
+  for (const t of e.changedTouches){
+    if (t.identifier===joy.id){ joyEnd(); break; }
+  }
+},{passive:false});
+joyEl.addEventListener('touchcancel', joyEnd);
+
+// Mouse fallback for desktop testing
+joyEl.addEventListener('mousedown', e=>{
+  joy.active=true; setJoyPos(e.clientX,e.clientY);
+  const mv = (ev)=> joy.active && setJoyPos(ev.clientX, ev.clientY);
+  const up = ()=>{ joyEnd(); window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); };
+  window.addEventListener('mousemove',mv);
+  window.addEventListener('mouseup',up);
+});
+
+// Keyboard
+const keys = {};
+window.addEventListener('keydown', e=>{
+  if (e.key==='ArrowUp'||e.key==='w'||e.key==='W') keys.up=true;
+  if (e.key==='ArrowDown'||e.key==='s'||e.key==='S') keys.down=true;
+  if (e.key==='ArrowLeft'||e.key==='a'||e.key==='A') keys.left=true;
+  if (e.key==='ArrowRight'||e.key==='d'||e.key==='D') keys.right=true;
+  if (e.key===' '||e.key==='Enter') useTool();
+  if (e.key==='i'||e.key==='I'||e.key==='Tab'){ e.preventDefault(); openInv(); }
+});
+window.addEventListener('keyup', e=>{
+  if (e.key==='ArrowUp'||e.key==='w'||e.key==='W') keys.up=false;
+  if (e.key==='ArrowDown'||e.key==='s'||e.key==='S') keys.down=false;
+  if (e.key==='ArrowLeft'||e.key==='a'||e.key==='A') keys.left=false;
+  if (e.key==='ArrowRight'||e.key==='d'||e.key==='D') keys.right=false;
+});
+
+// Use button
+document.getElementById('useBtn').addEventListener('touchstart', e=>{ e.preventDefault(); useTool(); },{passive:false});
+document.getElementById('useBtn').addEventListener('click', useTool);
+document.getElementById('toolBtn').addEventListener('click', openInv);
+document.getElementById('menuBtn').addEventListener('click', openMenu);
+
+/* ============================================================
+   UPDATE
+============================================================ */
+let lastT = 0;
+function update(dt){
+  const p = state.player;
+  // Inputs
+  let ix = joy.dx, iy = joy.dy;
+  if (keys.left) ix=-1; if (keys.right) ix=1;
+  if (keys.up) iy=-1; if (keys.down) iy=1;
+  // Deadzone
+  if (Math.abs(ix)<0.18 && Math.abs(iy)<0.18){ ix=0; iy=0; }
+  // Direction priority: largest axis
+  if (ix!==0||iy!==0){
+    if (Math.abs(ix)>Math.abs(iy)){
+      p.dir = ix>0?3:2;
+    } else {
+      p.dir = iy>0?0:1;
+    }
+  }
+
+  const speed = PLAYER_SPEED * (dt/16.67);
+  let nx = p.x + ix*speed, ny = p.y + iy*speed;
+  // Collision: check 4 corners (using a slightly smaller hitbox)
+  const HB_L = 8, HB_R = 24, HB_T = 18, HB_B = 30;
+  function blocked(px,py){
+    const corners = [
+      [px+HB_L, py+HB_T], [px+HB_R-1, py+HB_T],
+      [px+HB_L, py+HB_B-1], [px+HB_R-1, py+HB_B-1]
+    ];
+    for (const [cx,cy] of corners){
+      if (isSolid(Math.floor(cx/TS), Math.floor(cy/TS))) return true;
+    }
+    return false;
+  }
+  if (!blocked(nx, p.y)) p.x = nx;
+  if (!blocked(p.x, ny)) p.y = ny;
+  p.moving = (ix!==0||iy!==0);
+  if (p.moving) p.anim++;
+
+  // Clamp to map
+  p.x = Math.max(0, Math.min((MAP_W*TS)-32, p.x));
+  p.y = Math.max(0, Math.min((MAP_H*TS)-32, p.y));
+
+  // Use anim countdown
+  if (state.useAnim>0) state.useAnim--;
+
+  // Time progresses
+  state._timeAcc = (state._timeAcc||0) + dt;
+  // 1 game minute every 800ms real
+  while (state._timeAcc >= 800){
+    state._timeAcc -= 800;
+    state.time++;
+    if (state.time >= 24*60){
+      state.time = 6*60; nextDay();
+    }
+    if (state.time%30===0) updateHud();
+    // Auto-collapse after 2am
+    if (state.time===26*60%1440 || state.time>=2*60&&state.time<3*60 && !state._collapsed){
+      // handled by reaching midnight wrap; keep simple: just sleep if energy ran out elsewhere
+    }
+  }
+}
+
+let _t0 = performance.now();
+function loop(t){
+  const dt = Math.min(50, t - _t0);
+  _t0 = t;
+  if (state){
+    update(dt);
+    render();
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ============================================================
+   MODAL HELPERS
+============================================================ */
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('[data-close]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const m = b.closest('.modal');
+    if (m) m.classList.remove('show');
+  });
+});
+// Click outside panel to close
+document.querySelectorAll('.modal').forEach(m=>{
+  m.addEventListener('click', e=>{
+    if (e.target===m) m.classList.remove('show');
+  });
+});
+
+/* ============================================================
+   INVENTORY UI
+============================================================ */
+function openInv(){
+  renderInv();
+  openModal('invModal');
+}
+function renderInv(){
+  // Tool grid
+  const g = document.getElementById('toolGrid');
+  g.innerHTML = '';
+  for (const t of TOOLS){
+    const b = document.createElement('button');
+    b.className = 'tool-btn'+(state.tool===t.id&&state.selectedSeed===null?' active':'');
+    b.innerHTML = `<div>${t.emoji}</div><div class="lbl">${t.name.replace('Watering Can','Water')}</div>`;
+    b.onclick = ()=> setTool(t.id);
+    g.appendChild(b);
+  }
+  // Seeds
+  const sl = document.getElementById('seedList');
+  sl.innerHTML='';
+  let any=false;
+  for (const k in state.inv.seeds){
+    const n = state.inv.seeds[k];
+    if (!n) continue;
+    any=true;
+    const c = CROPS[k];
+    const sel = state.tool==='seed' && state.selectedSeed===k;
+    const row = document.createElement('div');
+    row.className = 'row'+(sel?' menu-row':'');
+    row.style.cursor='pointer';
+    row.style.borderColor = sel ? '#4ade80' : 'transparent';
+    row.style.borderWidth = '2px';
+    row.style.borderStyle = 'solid';
+    row.innerHTML = `<span class="icon">${c.emoji}</span>
+      <div class="info"><div class="name">${c.name} Seeds</div>
+      <div class="desc">${c.daysPerStage*(c.stages-1)} days · sells ${c.sellPrice}g${c.regrow?' · regrows':''}</div>
+      <div class="qty">×${n}</div></div>
+      <button>${sel?'Selected':'Plant'}</button>`;
+    row.onclick = ()=> { selectSeed(k); closeModal('invModal'); toast(`Selected ${c.emoji} ${c.name} seed`); };
+    sl.appendChild(row);
+  }
+  if (!any) sl.innerHTML = `<div class="empty">No seeds. Buy some at the shop! 🛒</div>`;
+  // Harvest
+  const hl = document.getElementById('harvestList');
+  hl.innerHTML = '';
+  any=false;
+  for (const k in state.inv.crops){
+    const n = state.inv.crops[k];
+    if (!n) continue;
+    any=true;
+    const c = CROPS[k];
+    const row = document.createElement('div');
+    row.className='row';
+    row.innerHTML = `<span class="icon">${c.emoji}</span>
+      <div class="info"><div class="name">${c.name}</div>
+      <div class="desc">Sell for ${c.sellPrice}g each</div>
+      <div class="qty">×${n}</div></div>`;
+    hl.appendChild(row);
+  }
+  if (!any) hl.innerHTML = `<div class="empty">No harvests yet 🌾</div>`;
+  // Materials
+  const ml = document.getElementById('matList');
+  ml.innerHTML = '';
+  any=false;
+  for (const k in state.inv.mats){
+    const n = state.inv.mats[k];
+    if (!n) continue;
+    any=true;
+    const m = MATS[k];
+    const row = document.createElement('div');
+    row.className='row';
+    row.innerHTML = `<span class="icon">${m.emoji}</span>
+      <div class="info"><div class="name">${m.name}</div>
+      <div class="desc">${m.sellPrice}g each</div>
+      <div class="qty">×${n}</div></div>`;
+    ml.appendChild(row);
+  }
+  if (!any) ml.innerHTML = `<div class="empty">No materials</div>`;
+}
+
+/* ============================================================
+   SHOP UI
+============================================================ */
+function openShop(){
+  renderShop();
+  openModal('shopModal');
+}
+function renderShop(){
+  // Buy
+  const buyEl = document.getElementById('shopBuy');
+  buyEl.innerHTML='';
+  for (const k in CROPS){
+    const c = CROPS[k];
+    const row = document.createElement('div');
+    row.className='row';
+    row.innerHTML = `<span class="icon">${c.emoji}</span>
+      <div class="info"><div class="name">${c.name} Seeds</div>
+      <div class="desc">${c.daysPerStage*(c.stages-1)}d · sells ${c.sellPrice}g${c.regrow?' · regrows':''}</div></div>`;
+    const btn = document.createElement('button');
+    btn.textContent = `Buy ${c.seedPrice}g`;
+    btn.disabled = state.gold < c.seedPrice;
+    btn.onclick = ()=>{
+      if (state.gold < c.seedPrice) return;
+      state.gold -= c.seedPrice;
+      state.inv.seeds[k] = (state.inv.seeds[k]||0)+1;
+      toast(`Bought ${c.emoji} ${c.name} seed`);
+      updateHud(); renderShop(); save();
+    };
+    row.appendChild(btn);
+    buyEl.appendChild(row);
+  }
+  // Sell
+  const sellEl = document.getElementById('shopSell');
+  sellEl.innerHTML='';
+  let any=false;
+  for (const k in state.inv.crops){
+    const n = state.inv.crops[k];
+    if (!n) continue; any=true;
+    const c = CROPS[k];
+    const row = document.createElement('div');
+    row.className='row';
+    row.innerHTML = `<span class="icon">${c.emoji}</span>
+      <div class="info"><div class="name">${c.name}</div>
+      <div class="desc">×${n} · ${c.sellPrice}g each</div></div>`;
+    const b1 = document.createElement('button'); b1.className='sell'; b1.textContent=`Sell 1`;
+    b1.onclick = ()=>{ sellItem('crops',k,1); };
+    const b2 = document.createElement('button'); b2.className='sell'; b2.textContent=`All`;
+    b2.style.marginLeft='4px';
+    b2.onclick = ()=>{ sellItem('crops',k,n); };
+    const w = document.createElement('div'); w.style.display='flex'; w.style.gap='4px';
+    w.appendChild(b1); w.appendChild(b2);
+    row.appendChild(w);
+    sellEl.appendChild(row);
+  }
+  for (const k in state.inv.mats){
+    const n = state.inv.mats[k];
+    if (!n) continue; any=true;
+    const m = MATS[k];
+    const row = document.createElement('div');
+    row.className='row';
+    row.innerHTML = `<span class="icon">${m.emoji}</span>
+      <div class="info"><div class="name">${m.name}</div>
+      <div class="desc">×${n} · ${m.sellPrice}g each</div></div>`;
+    const b1 = document.createElement('button'); b1.className='sell'; b1.textContent=`Sell 1`;
+    b1.onclick = ()=>{ sellItem('mats',k,1); };
+    const b2 = document.createElement('button'); b2.className='sell'; b2.textContent=`All`;
+    b2.style.marginLeft='4px';
+    b2.onclick = ()=>{ sellItem('mats',k,n); };
+    const w = document.createElement('div'); w.style.display='flex'; w.style.gap='4px';
+    w.appendChild(b1); w.appendChild(b2);
+    row.appendChild(w);
+    sellEl.appendChild(row);
+  }
+  if (!any) sellEl.innerHTML = `<div class="empty">Nothing to sell — grow some crops! 🌱</div>`;
+}
+function sellItem(bin, key, n){
+  const data = bin==='crops' ? CROPS[key] : MATS[key];
+  const have = state.inv[bin][key]||0;
+  const sell = Math.min(have, n);
+  if (sell<=0) return;
+  state.inv[bin][key] -= sell;
+  const earn = sell*data.sellPrice;
+  state.gold += earn;
+  toast(`+${earn}g for ${sell} ${data.emoji}`);
+  if (state.gold >= 5000 && !state.flags.beatGame){
+    state.flags.beatGame = true;
+    setTimeout(()=> alert('🎉 You hit 5,000g! You\'ve made it as a farmer! Keep playing to expand your farm.'), 300);
+  }
+  updateHud(); renderShop(); save();
+}
+
+document.querySelectorAll('[data-shop-tab]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('[data-shop-tab]').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    const which = b.dataset.shopTab;
+    document.getElementById('shopBuy').style.display = which==='buy'?'block':'none';
+    document.getElementById('shopSell').style.display = which==='sell'?'block':'none';
+  });
+});
+
+/* ============================================================
+   MENU
+============================================================ */
+function openMenu(){ openModal('menuModal'); }
+function openSleep(){
+  closeModal('menuModal');
+  openModal('sleepModal');
+}
+document.getElementById('confirmSleep').onclick = ()=>{
+  closeModal('sleepModal');
+  flashDayOverlay('💤 Sleeping...');
+  setTimeout(()=>{ nextDay(); }, 600);
+};
+document.getElementById('howToBtn').onclick = ()=>{ closeModal('menuModal'); openModal('howModal'); };
+document.getElementById('resetBtn').onclick = ()=>{
+  if (confirm('Erase your save and start over?')){
+    localStorage.removeItem(SAVE_KEY);
+    location.reload();
+  }
+};
+document.getElementById('endDayBtn').onclick = ()=>{
+  closeModal('menuModal');
+  openModal('sleepModal');
+};
+
+/* ============================================================
+   START
+============================================================ */
+function startGame(fresh){
+  if (fresh){
+    state = defaultState();
+    state.map = makeMap();
+    save();
+  } else {
+    state = load();
+    if (!state){
+      state = defaultState();
+      state.map = makeMap();
+    }
+  }
+  document.getElementById('title').classList.add('hide');
+  resize();
+  updateHud();
+  updateToolChip();
+}
+
+document.getElementById('newGameBtn').addEventListener('click', ()=>{
+  if (hasSave()){
+    if (!confirm('You have an existing save. Start a new farm anyway?')) return;
+  }
+  startGame(true);
+});
+document.getElementById('continueBtn').addEventListener('click', ()=> startGame(false));
+
+if (hasSave()) document.getElementById('continueBtn').style.display = 'block';
+
+// Init
+resize();
+requestAnimationFrame(loop);
+
+// Initial dummy state to render nothing safely
+state = null;
+
+// Periodic autosave
+setInterval(()=>{ if (state) save(); }, 10000);
+
+})();
+</script>
+</body>
+</html>
