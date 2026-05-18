@@ -1091,15 +1091,14 @@ function useTool(){
       save();
     } else if (t===T.TILLED||t===T.WATERED){
       if (crop){
-        if (!useEnergy(2)) return;
-        delete state.crops[key];
-        state.useAnim = 8;
-        toast('Pulled up plant');
+        if (crop.stage>=3){
+          // ripe — harvest path handled above; shouldn't reach here, but safe
+          return;
+        }
+        toast('A plant is growing here');
       } else {
-        state.map[ty][tx] = T.GRASS;
-        state.useAnim = 8;
+        toast('Already tilled');
       }
-      save();
     } else {
       toast('Can\'t till that');
     }
@@ -1314,12 +1313,23 @@ joyEl.addEventListener('touchmove', e=>{
     if (t.identifier===joy.id){ setJoyPos(t.clientX, t.clientY); break; }
   }
 },{passive:false});
-joyEl.addEventListener('touchend', e=>{
-  for (const t of e.changedTouches){
-    if (t.identifier===joy.id){ joyEnd(); break; }
+// Window-level end/cancel so the joystick can never get stuck if the OS,
+// app backgrounding, or a different element steals the touch.
+function maybeEndJoy(e){
+  if (joy.id==null) return;
+  // If our tracked touch ID is no longer among active touches, release.
+  if (e && e.touches){
+    let stillThere = false;
+    for (const t of e.touches){ if (t.identifier===joy.id){ stillThere=true; break; } }
+    if (!stillThere) joyEnd();
+  } else {
+    joyEnd();
   }
-},{passive:false});
-joyEl.addEventListener('touchcancel', joyEnd);
+}
+window.addEventListener('touchend', maybeEndJoy, {passive:true});
+window.addEventListener('touchcancel', maybeEndJoy, {passive:true});
+document.addEventListener('visibilitychange', ()=>{ if (document.hidden) joyEnd(); });
+window.addEventListener('blur', joyEnd);
 
 // Mouse fallback for desktop testing
 joyEl.addEventListener('mousedown', e=>{
@@ -1359,12 +1369,15 @@ document.getElementById('menuBtn').addEventListener('click', openMenu);
 let lastT = 0;
 function update(dt){
   const p = state.player;
-  // Inputs
+  // Inputs — guard against NaN/undefined that could poison player position
+  if (!Number.isFinite(joy.dx) || !Number.isFinite(joy.dy)) { joy.dx=0; joy.dy=0; }
   let ix = joy.dx, iy = joy.dy;
   if (keys.left) ix=-1; if (keys.right) ix=1;
   if (keys.up) iy=-1; if (keys.down) iy=1;
   // Deadzone
   if (Math.abs(ix)<0.18 && Math.abs(iy)<0.18){ ix=0; iy=0; }
+  // Safety: if player position ever becomes non-finite, reset to spawn
+  if (!Number.isFinite(p.x) || !Number.isFinite(p.y)){ p.x=11*TS; p.y=12*TS; }
   // Direction priority: largest axis
   if (ix!==0||iy!==0){
     if (Math.abs(ix)>Math.abs(iy)){
